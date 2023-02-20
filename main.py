@@ -23,11 +23,11 @@ def ping(r):
         try:
             r.ping()
             logging.debug("ping redis %s, 剩余 %s 个任务" % (
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), myRedis.llen(REDIS_QUESTION_QUEUE)))
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), myRedis.llen(REDIS_QUESTION_QUEUE)))
         except:
             pass
         finally:
-            time.sleep(1)
+            time.sleep(5)
 
 
 def question():
@@ -64,7 +64,7 @@ def answer():
 REDIS_QUESTION_QUEUE = "openai-chat-question"
 REDIS_ANSWER_QUEUE = "openai-chat-answer"
 
-# 每次启��服务时，切换id，避免遗留数据获取不到上下文导致出错
+# 每次启动服务时，切换id，避免遗留数据获取不到上下文导致出错
 REDIS_CONVERSATION_ID_KEY = "openai-chat-cid-" + str(uuid.uuid4()) + "-"
 
 QUESTION_COUNT = 1
