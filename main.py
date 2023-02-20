@@ -27,17 +27,16 @@ def ping(r):
         except:
             pass
         finally:
-            time.sleep(5)
+            time.sleep(60)
 
 
 def question():
     c = chatbotList[threading.current_thread().name]
-    print(c)
     while 1:
         message = myRedis.rpop(REDIS_QUESTION_QUEUE)
         if message:
             task = json.loads(message)
-            print("%s get a task %s" % (threading.current_thread().name, task["message"]))
+            logging.debug("%s get a task %s" % (threading.current_thread().name, task["message"]))
 
             prev_text = ""
             conversationId = myRedis.get(REDIS_CONVERSATION_ID_KEY + task["session_id"])
@@ -53,7 +52,6 @@ def question():
                 if data["conversation_id"]:
                     myRedis.set(REDIS_CONVERSATION_ID_KEY + task["session_id"], str(data["conversation_id"]))
                 myRedis.lpush(REDIS_ANSWER_QUEUE, json.dumps({"session_id": task["session_id"], "message": message}))
-            print(chatbot.conversation_mapping)
             print()
 
 
