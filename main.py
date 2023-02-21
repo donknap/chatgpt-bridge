@@ -52,7 +52,7 @@ def question():
             for data in c.ask(prompt=task["message"], conversation_id=conversationId):
                 message = data["message"][len(prev_text):]
                 allMessage += message
-                print(message, end="", flush=True)
+                #print(message, end="", flush=True)
                 prev_text = data["message"]
                 if data["conversation_id"]:
                     myRedis.set(REDIS_CONVERSATION_ID_KEY + task["session_id"], str(data["conversation_id"]),
