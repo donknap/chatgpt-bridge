@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 import threading
 import time
 import uuid
@@ -32,6 +33,7 @@ def ping(r):
 
 def question():
     c = chatbotList[threading.current_thread().name]
+    outer = output()
     while 1:
         message = myRedis.rpop(REDIS_QUESTION_QUEUE)
         if message:
@@ -39,28 +41,61 @@ def question():
             logging.debug("%s get a task %s" % (threading.current_thread().name, task["message"]))
 
             prev_text = ""
+            allMessage = ""
             conversationId = myRedis.get(REDIS_CONVERSATION_ID_KEY + task["session_id"])
             if not conversationId:
                 conversationId = None
             else:
                 conversationId = conversationId.decode()
 
+            sys.stdout = outer
             for data in c.ask(prompt=task["message"], conversation_id=conversationId):
                 message = data["message"][len(prev_text):]
+                allMessage += message
                 print(message, end="", flush=True)
                 prev_text = data["message"]
                 if data["conversation_id"]:
-                    myRedis.set(REDIS_CONVERSATION_ID_KEY + task["session_id"], str(data["conversation_id"]))
-                myRedis.lpush(REDIS_ANSWER_QUEUE, json.dumps({"session_id": task["session_id"], "message": message}))
+                    myRedis.set(REDIS_CONVERSATION_ID_KEY + task["session_id"], str(data["conversation_id"]),
+                                ex=3600)
+                myRedis.lpush(REDIS_ANSWER_QUEUE, json.dumps(
+                    {"session_id": task["session_id"], "type": ANSWER_WORD, "message": message}))
+            sys.stdout = sys.__stdout__
             print()
+            if allMessage != "":
+                myRedis.lpush(REDIS_ANSWER_QUEUE,
+                              json.dumps({"session_id": task["session_id"], "type": ANSWER_ALL, "message": allMessage}))
+                logging.debug("%s answer %s" % (threading.current_thread().name, allMessage))
+            else:
+                myRedis.lpush(REDIS_ANSWER_QUEUE,
+                              json.dumps({"session_id": task["session_id"], "type": ANSWER_ERROR, "message": outer.content}))
+                outer.flush()
 
 
 def answer():
     pass
 
 
+class output:
+    content = ""
+
+    def write(self, message):
+        if message != "":
+            logging.debug("%s" % message)
+        if message != "Field missing":
+            self.content += message
+        return message
+
+    def flush(self):
+        self.content = ""
+        pass
+
+
 REDIS_QUESTION_QUEUE = "openai-chat-question"
 REDIS_ANSWER_QUEUE = "openai-chat-answer"
+
+ANSWER_WORD = 1
+ANSWER_ALL = 2
+ANSWER_ERROR = 3
 
 # 每次启动服务时，切换id，避免遗留数据获取不到上下文导致出错
 REDIS_CONVERSATION_ID_KEY = "openai-chat-cid-" + str(uuid.uuid4()) + "-"
